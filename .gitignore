@@ -1,0 +1,31 @@
+# Data
+data/eurosat/
+*.zip
+
+# Checkpoints
+results/checkpoints/
+*.pth
+*.pt
+
+# Logs
+results/logs/
+*.log
+wandb/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.ipynb_checkpoints/
+
+# Environment
+venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp

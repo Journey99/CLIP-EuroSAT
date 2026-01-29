@@ -1,0 +1,27 @@
+{
+  "class_names": [
+    "AnnualCrop",
+    "Forest", 
+    "HerbaceousVegetation",
+    "Highway",
+    "Industrial",
+    "Pasture",
+    "PermanentCrop",
+    "Residential",
+    "River",
+    "SeaLake"
+  ],
+  "templates": [
+    "a centered satellite photo of {}.",
+    "a satellite image of {}.",
+    "an aerial view of {}.",
+    "a satellite photo showing {}.",
+    "a remote sensing image of {}.",
+    "a top-down view of {}.",
+    "a bird's eye view of {}.",
+    "a satellite photograph of {}."
+  ],
+  "simple_templates": [
+    "a photo of {}."
+  ]
+}
