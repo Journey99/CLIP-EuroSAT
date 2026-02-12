@@ -20,6 +20,8 @@ def few_shot_linear_experiment(shots_per_class=5):
     logger = setup_logger(f'few_shot_linear_{shots_per_class}shot')
     logger.info(f"Starting Few-shot Linear Probe ({shots_per_class} shots)")
     
+    os.makedirs('results/checkpoints', exist_ok=True)
+    
     set_seed(42)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
