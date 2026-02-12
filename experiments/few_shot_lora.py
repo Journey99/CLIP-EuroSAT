@@ -192,3 +192,6 @@ def evaluate_lora(clip_model, classifier, dataloader, device):
             total += labels.size(0)
     
     return correct / total
+
+if __name__=='__main__':
+    metrics = few_shot_lora_experiment(shots_per_class=5)

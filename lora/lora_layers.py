@@ -48,7 +48,18 @@ def inject_lora_to_linear(linear_layer, config):
             # Original weight 고정
             for param in self.original_linear.parameters():
                 param.requires_grad = False
-        
+
+        @property
+        def weight(self):
+            # CLIP 내부 로직이 module.weight를 찾을 때 original_linear의 weight를 반환함
+            return self.original_linear.weight
+
+        @property
+        def bias(self):
+            # CLIP 내부 로직이 module.bias를 찾을 때 대응함
+            return self.original_linear.bias
+
+
         def forward(self, x):
             return self.original_linear(x) + self.lora(x)
     
