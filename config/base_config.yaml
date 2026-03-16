@@ -16,7 +16,11 @@ data:
 
 few_shot:
   shots_per_class: [1, 5, 10, 20]
-  
+
+few_shot_linear:
+  epochs: 100
+  learning_rate: 1e-3
+
 lora:
   r: 8
   alpha: 16

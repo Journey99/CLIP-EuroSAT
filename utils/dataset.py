@@ -59,28 +59,43 @@ class EuroSATDataset(Dataset):
         
         return image, label
     
-    def get_few_shot_subset(self, shots_per_class):
+    def get_few_shot_subset(self, shots_per_class, allowed_indices=None):
         """
-        Few-shot 학습용 서브셋 생성
-        
+        Few-shot 학습용 서브셋 생성 (train split만 사용하려면 allowed_indices 전달).
+
         Args:
             shots_per_class: 클래스당 샘플 수
-        
+            allowed_indices: None이면 전체 데이터에서 샘플링.
+                            iterable이면 이 인덱스들 안에서만 클래스별 샘플링 (train만 쓰기 위해).
+
         Returns:
-            few_shot_indices: 선택된 샘플 인덱스
+            few_shot_indices: 선택된 샘플 인덱스 (원본 dataset 기준)
         """
-        np.random.seed(42)  # 재현성
-        
+        rng = np.random.RandomState(42)
+
+        if allowed_indices is not None:
+            # list 또는 torch.Tensor 모두 처리
+            try:
+                allowed_set = set(int(i) for i in allowed_indices)
+            except TypeError:
+                allowed_set = set(allowed_indices)
+        else:
+            allowed_set = None
+
         few_shot_indices = []
-        
+
         for class_idx in range(len(self.classes)):
-            # 해당 클래스의 모든 인덱스
-            class_indices = [i for i, (_, label) in enumerate(self.samples) if label == class_idx]
-            
-            # 랜덤 샘플링
-            selected = np.random.choice(class_indices, size=shots_per_class, replace=False)
-            few_shot_indices.extend(selected)
-        
+            # 해당 클래스의 인덱스 (allowed_indices가 있으면 그 안에서만)
+            class_indices = [
+                i for i, (_, label) in enumerate(self.samples)
+                if label == class_idx and (allowed_set is None or i in allowed_set)
+            ]
+            k = min(shots_per_class, len(class_indices))
+            if k == 0:
+                continue
+            selected = rng.choice(class_indices, size=k, replace=False)
+            few_shot_indices.extend(selected.tolist())
+
         return few_shot_indices
 
 def get_dataloaders(
