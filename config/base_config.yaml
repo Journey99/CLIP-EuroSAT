@@ -25,7 +25,7 @@ lora:
   r: 8
   alpha: 16
   dropout: 0.1
-  target_modules: ['q_proj', 'v_proj']
+  target_modules: ['q_proj', 'v_proj', 'out_proj']
 
 training:
   epochs: 50

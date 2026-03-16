@@ -112,7 +112,7 @@ jupyter notebook notebooks/04_analysis.ipynb
 ### 3. LoRA Efficiency
 - Linear Probe vs LoRA (같은 shot 수)
 - Parameter 대비 성능 (0.4% params로 얼마나?)
-- Rank(r) 영향 분석 (optional: r=4, 8, 16 비교)
+- Rank(r) 영향 분석 (optional: r=4, 8 비교)
 
 ### 4. Full Fine-tuning Analysis
 - Overfitting 여부 (train/val/test gap)
@@ -132,3 +132,61 @@ jupyter notebook notebooks/04_analysis.ipynb
 - `models/`: CLIP wrapper
 - `utils/`: 유틸리티 함수
 - `results/`: 실험 결과
+
+
+## 결과 분석
+| 방법               | accuracy|
+| ---------------- | ---------------- |
+| Zero-shot CLIP   | 41.6%        |
+| Few-shot Linear (1/5/10/20)  | 59.6 % / 76.1% / 76.8% / 80.4% |
+| LoRA (1/5/10/20)    | 44.5% / 46.9% / 72.9% / 75.03%   |
+| Full fine-tuning | 98.5%          |
+
+### 1. Zero-shot clip
+EuroSAT은 satellite imagery인데 CLIP는 internet image + text로 학습되었다. 그래서 domain gap이 생기고 40~60% 정도의 정확도가 나올 수 있다.
+
+### 2. Few-shot Linear
+이 패턴은 CLIP few-shot 논문에서도 거의 동일하게 나타난다.
+1. CLIP feature quality
+    - CLIP image encoder의 embedding은 이미 semantic feature space를 형성
+    - 즉 eature space에서 forest/river 같은 클래스가 어느 정도 분리
+    - 그래서 linear classifier는 단순히 decision boundary만 학습하면 됨
+2. 파마리터 수가 매우 적음
+    - linear probe에서 학습되는 것은 embedding_dim × num_classes
+    - 그래서 few-shot에서도 안정적으로 학습 가능
+
+### 3. Few-shot LoRA
+1,5-shot → 거의 zero-shot 수준 / 10-shot부터 급상승 이 패턴은 흔한 패턴이다.
+1. low-shot에서 발생하는 문제
+예를 들어 1-shot이면 train data = 10 / train params = 300k 이다. 이 경우 gradient noise, optimization instablility가 발생한다. 그래서 representation adaptation이 제대로 일어나지 않아 zero-shot과 비슷한 정확도가 나올 수 있다.
+2. 10-shot에서 올라가는 이유
+LoRA는 backbone feature를 수정한다. 즉, representation learning 문제다. representation을 수정하려면 decision boundary 학습보다 훨씬 많은 데이터가 필요하다. 그래서 10-shot 부터는 representation gradient signal이 충분해진다. 그래서 정확도가 급 상승할 수 있다.
+3. Linear vs LoRA 결과 차이의 본질
+
+    | 방법           | 학습 대상                   |
+    | ------------ | ----------------------- |
+    | Linear probe | classifier              |
+    | LoRA         | backbone representation |
+4. LoRA가 20-shot에서도 linear보다 낮은 이유
+    1. training epoch 차이
+        - representation tuning은 더 오래 학습해야함
+    2. learning rate
+        - 높은 학습률로 1e-4 ~ 2e-4 낮추면 개선 가능
+    3. LoRA가 20-shot에서도 linear보다 낮은 이유
+        - 현재 적용 위치에 k_proj + mlp 추가하면 성능 개선 가능
+    4. Rank
+        - few-shot에서는 r=4가 안정적인 경우도 많다.
+        - rank 가 작을수록 파라미터가 작아지고 오버피팅이 감소
+
+### 4. Full fine-tuning
+- full_finetune.py
+    - encoder와 classifier 모두 **아주 낮은 lr(1e-5)**로만 학습 → 초기 몇 epoch 동안 변화가 매우 느림
+    - warmup/clip 없음 → 큰 문제는 아니지만 수렴 속도가 느리고, 특정 seed에서 평평하게 머무를 위험이 있음
+- full_finetune_v2.py
+    - warmup + cosine으로 안정적 시작
+    - gradient clipping으로 폭주 방지
+
+### 정리
+- EuroSAT 데이터셋에서 Full Fine-tuning은 98%의 정확도를 달성하며 parameter-efficient 방법들보다 훨씬 높은 성능을 보였다.
+- 이는 CLIP의 feature가 위성 이미지에서도 이미 어느 정도 구별력을 가지지만, backbone 전체를 업데이트할 경우 원격탐사 데이터에 특화된 표현(domain-specific representation)을 추가로 학습할 수 있기 때문으로 해석할 수 있다.
+- 또한 few-shot adaptation과 full fine-tuning 사이의 큰 성능 차이는 효과적인 representation 학습을 위해 충분한 학습 데이터가 중요하다는 점을 보여준다.

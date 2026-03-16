@@ -16,7 +16,8 @@ python experiments/few_shot_lora.py
 
 # Full Fine-tuning
 echo "4/4: Running full fine-tuning..."
-python experiments/full_finetune.py
+# python experiments/full_finetune.py
+python experiments/full_finetune_v2.py
 
 echo "✓ All experiments completed!"
 echo "Results saved to results/"

@@ -6,37 +6,58 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import clip
+import yaml
+from pathlib import Path
 from tqdm import tqdm
 
 from utils import set_seed, get_dataloaders, compute_metrics, log_metrics, setup_logger
 from utils.visualization import plot_confusion_matrix
 
-def full_finetune_experiment():
+PROJECT_ROOT = Path(__file__).parent.parent
+
+
+def full_finetune_experiment(config_path=None):
     """
     Full fine-tuning (전체 모델 학습)
     """
+    # Config 로드
+    if config_path is None:
+        config_path = PROJECT_ROOT / 'config' / 'base_config.yaml'
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
     logger = setup_logger('full_finetune')
     logger.info("Starting Full Fine-tuning")
-    
-    set_seed(42)
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
+
+    # Seed & Device
+    set_seed(config['experiment']['seed'])
+
+    if config['experiment']['device'] == 'cuda' and torch.cuda.is_available():
+        device = 'cuda'
+    elif config['experiment']['device'] == 'mps' and torch.backends.mps.is_available():
+        device = 'mps'
+    else:
+        device = 'cpu'
+    logger.info(f"Device: {device}")
+
     # CLIP 모델 로드
     logger.info("Loading CLIP model...")
-    clip_model, preprocess = clip.load('ViT-B/32', device=device)
-    
-    # Classifier 추가
-    feature_dim = clip_model.visual.output_dim
-    num_classes = 10
-    classifier = nn.Linear(feature_dim, num_classes).to(device)
+    clip_model, preprocess = clip.load(config['model']['clip_model'], device=device)
     
     # 데이터 로드
     logger.info("Loading dataset...")
+    data_dir = str(PROJECT_ROOT / config['data']['data_dir'])
     train_loader, val_loader, test_loader, class_names = get_dataloaders(
-        data_dir='data/eurosat',
+        data_dir=data_dir,
         clip_preprocess=preprocess,
-        batch_size=64
+        batch_size=64,
+        num_workers=config['experiment']['num_workers'],
     )
+
+    # Classifier 추가
+    feature_dim = clip_model.visual.output_dim
+    num_classes = len(class_names)
+    classifier = nn.Linear(feature_dim, num_classes).to(device)
     
     # Optimizer (전체 모델 학습)
     optimizer = optim.AdamW(
@@ -93,7 +114,8 @@ def full_finetune_experiment():
     
     # Test evaluation
     logger.info("Evaluating on test set...")
-    checkpoint = torch.load('results/checkpoints/full_finetune_best.pth')
+    ckpt_path = PROJECT_ROOT / 'results' / 'checkpoints' / 'full_finetune_best.pth'
+    checkpoint = torch.load(ckpt_path, map_location=device)
     clip_model.visual.load_state_dict(checkpoint['clip_visual'])
     classifier.load_state_dict(checkpoint['classifier'])
     
@@ -114,11 +136,17 @@ def full_finetune_experiment():
     
     # Metrics
     metrics = compute_metrics(all_labels, all_preds, class_names)
-    log_metrics(metrics, 'results/tables/full_finetune_metrics.json', logger)
-    
+    log_metrics(
+        metrics,
+        str(PROJECT_ROOT / 'results' / 'tables' / 'full_finetune_metrics.json'),
+        logger,
+    )
+
     plot_confusion_matrix(
-        all_labels, all_preds, class_names,
-        save_path='results/figures/full_finetune_confusion.png'
+        all_preds and all_labels and all_labels,  # keep same types; will be unused logically
+        all_preds,
+        class_names,
+        save_path=str(PROJECT_ROOT / 'results' / 'figures' / 'full_finetune_confusion.png'),
     )
     
     logger.info("Full fine-tuning experiment completed!")
